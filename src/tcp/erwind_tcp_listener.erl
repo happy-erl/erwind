@@ -5,9 +5,6 @@
 -module(erwind_tcp_listener).
 -behaviour(gen_server).
 
-%% eqwalizer: unchecked for gen_server calls (eqwalizer cannot verify handle_call returns)
--eqwalizer({get_port, 0, unchecked}).
--eqwalizer({get_listen_socket, 0, unchecked}).
 
 %% API
 -export([start_link/1, stop/0, get_port/0, get_connection_count/0, get_listen_socket/0]).
@@ -40,12 +37,16 @@ stop() ->
 %% 获取监听端口
 -spec get_port() -> inet:port_number().
 get_port() ->
-    gen_server:call(?MODULE, get_port).
+    Port = gen_server:call(?MODULE, get_port),
+    true = is_integer(Port),
+    Port.
 
 %% 获取监听 socket
 -spec get_listen_socket() -> inet:socket() | undefined.
 get_listen_socket() ->
-    gen_server:call(?MODULE, get_listen_socket).
+    Socket = gen_server:call(?MODULE, get_listen_socket),
+    true = (Socket =:= undefined orelse is_port(Socket)),
+    Socket.
 
 %% 获取活跃连接数
 -spec get_connection_count() -> non_neg_integer().
