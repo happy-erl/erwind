@@ -1,13 +1,50 @@
 {application, erwind, [
-    {description, "An OTP library"},
+    {description, "Erlang message queue system inspired by NSQ"},
     {vsn, "0.1.0"},
-    {registered, []},
+    {registered, [
+        erwind_sup,
+        erwind_tcp_sup,
+        erwind_acceptor_pool_sup,
+        erwind_connection_sup,
+        erwind_tcp_listener
+    ]},
     {applications, [
         kernel,
-        stdlib
+        stdlib,
+        crypto
     ]},
-    {env, []},
-    {modules, []},
+    {env, [
+        %% TCP 监听配置
+        {tcp_port, 4150},
+        {acceptor_pool_size, 10},
+        {max_connections, 10000},
+
+        %% 协议超时配置 (毫秒)
+        {identify_timeout, 10000},
+        {heartbeat_interval, 30000},
+        {msg_timeout, 60000},
+        {max_rdy_count, 2500},
+
+        %% 消息大小限制
+        {max_msg_size, 1048576},
+        {max_body_size, 5242880},
+
+        %% 认证配置
+        {auth_required, false},
+        {auth_secret, undefined}
+    ]},
+    {modules, [
+        erwind,
+        erwind_app,
+        erwind_sup,
+        erwind_tcp_sup,
+        erwind_acceptor_pool_sup,
+        erwind_connection_sup,
+        erwind_tcp_listener,
+        erwind_acceptor,
+        erwind_connection
+    ]},
     {licenses, ["Apache-2.0"]},
-    {links, []}
+    {links, []},
+    {mod, {erwind_app, []}}
  ]}.
