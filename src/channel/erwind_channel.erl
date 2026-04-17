@@ -1,6 +1,10 @@
 %% erwind_channel.erl
 %% Channel 模块 - 消费者订阅的消息通道
 %% 负责管理消费者列表和消息分发
+%%
+%% eqwalizer notes: Static type inference limitations exist for gen_server:call
+%% and higher-order list operations (lists:map). Runtime type safety is ensured
+%% through pattern matching and guards.
 
 -module(erwind_channel).
 -behaviour(gen_server).
@@ -87,6 +91,7 @@ get_consumers(Pid) when is_pid(Pid) ->
     Result = gen_server:call(Pid, get_consumers),
     %% Type guard for eqwalizer
     true = is_list(Result),
+    true = lists:all(fun is_pid/1, Result),
     Result.
 
 %% 获取统计信息
@@ -127,6 +132,8 @@ handle_call({subscribe, ConsumerPid}, _From, State) ->
 
 handle_call({unsubscribe, ConsumerPid}, _From, State) ->
     NewConsumers = lists:keydelete(ConsumerPid, #consumer.pid, State#state.consumers),
+    %% Type guard for eqwalizer
+    true = lists:all(fun(C) -> is_record(C, consumer) end, NewConsumers),
     {reply, ok, State#state{consumers = NewConsumers}};
 
 handle_call(get_consumers, _From, State) ->
@@ -158,45 +165,25 @@ handle_cast({put_message, Msg}, State) ->
 %% 完成消息
 handle_cast({finish, MsgId}, State) ->
     %% 从消费者的 in_flight 中移除
-    NewConsumers = lists:map(fun(C) ->
-        NewInFlightMsgs = maps:remove(MsgId, C#consumer.inflight_msgs),
-        C#consumer{inflight_msgs = NewInFlightMsgs}
-    end, State#state.consumers),
+    NewConsumers = remove_from_inflight(State#state.consumers, MsgId),
     {noreply, State#state{consumers = NewConsumers}};
 
 %% 重新入队
 handle_cast({requeue, MsgId, Timeout}, State) ->
     %% 从 in_flight 移除并延迟处理
-    NewConsumers = lists:map(fun(C) ->
-        case maps:get(MsgId, C#consumer.inflight_msgs, undefined) of
-            undefined -> C;
-            _Msg ->
-                %% 设置延迟定时器
-                erlang:send_after(Timeout, self(), {deferred_requeue, MsgId}),
-                C
-        end
-    end, State#state.consumers),
+    NewConsumers = mark_for_requeue(State#state.consumers, MsgId, Timeout, self()),
     {noreply, State#state{consumers = NewConsumers}};
 
 %% 延长消息超时
 handle_cast({touch, MsgId}, State) ->
     %% 更新 in_flight 消息的超时时间
-    NewConsumers = lists:map(fun(C) ->
-        case maps:get(MsgId, C#consumer.inflight_msgs, undefined) of
-            undefined -> C;
-            Msg ->
-                NewInFlightMsgs = maps:put(MsgId, Msg, C#consumer.inflight_msgs),
-                C#consumer{inflight_msgs = NewInFlightMsgs}
-        end
-    end, State#state.consumers),
+    NewConsumers = touch_inflight_msgs(State#state.consumers, MsgId),
     {noreply, State#state{consumers = NewConsumers}};
 
 %% 更新 RDY
 handle_cast({update_rdy, Count}, State) when is_integer(Count), Count >= 0 ->
     %% 更新所有消费者的 RDY
-    NewConsumers = lists:map(fun(C) ->
-        C#consumer{rdy = Count}
-    end, State#state.consumers),
+    NewConsumers = update_consumers_rdy(State#state.consumers, Count),
     {noreply, State#state{consumers = NewConsumers}};
 
 handle_cast(_Request, State) ->
@@ -278,6 +265,36 @@ update_consumer_after_deliver(Consumers, Consumer, Msg) ->
         };
        (C) -> C
     end, Consumers).
+
+%% 辅助函数：从所有消费者的 in_flight 中移除指定消息
+-spec remove_from_inflight([#consumer{}], binary()) -> [#consumer{}].
+remove_from_inflight(Consumers, MsgId) ->
+    [C#consumer{inflight_msgs = maps:remove(MsgId, C#consumer.inflight_msgs)} || C <- Consumers].
+
+%% 辅助函数：标记消息为重新入队
+-spec mark_for_requeue([#consumer{}], binary(), integer(), pid()) -> [#consumer{}].
+mark_for_requeue(Consumers, MsgId, Timeout, ChannelPid) ->
+    [case maps:is_key(MsgId, C#consumer.inflight_msgs) of
+        true ->
+            erlang:send_after(Timeout, ChannelPid, {deferred_requeue, MsgId}),
+            C;
+        false ->
+            C
+    end || C <- Consumers].
+
+%% 辅助函数：更新 in_flight 消息的超时时间
+-spec touch_inflight_msgs([#consumer{}], binary()) -> [#consumer{}].
+touch_inflight_msgs(Consumers, MsgId) ->
+    [case maps:get(MsgId, C#consumer.inflight_msgs, undefined) of
+        undefined -> C;
+        Msg ->
+            C#consumer{inflight_msgs = maps:put(MsgId, Msg, C#consumer.inflight_msgs)}
+    end || C <- Consumers].
+
+%% 辅助函数：更新所有消费者的 RDY
+-spec update_consumers_rdy([#consumer{}], integer()) -> [#consumer{}].
+update_consumers_rdy(Consumers, Count) ->
+    [C#consumer{rdy = Count} || C <- Consumers].
 
 %% 判断是否为临时 Channel
 is_ephemeral(ChannelName) ->

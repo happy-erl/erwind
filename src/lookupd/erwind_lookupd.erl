@@ -45,11 +45,12 @@ unregister_channel(TopicName, ChannelName) when is_binary(TopicName), is_binary(
 
 -spec lookup(binary()) -> {ok, [map()]} | {error, term()}.
 lookup(TopicName) when is_binary(TopicName) ->
-    Result = gen_server:call(?MODULE, {lookup, TopicName}),
-    %% Type guard for eqwalizer
-    case Result of
-        {ok, List} when is_list(List) -> Result;
-        {error, _} -> Result
+    case gen_server:call(?MODULE, {lookup, TopicName}) of
+        {ok, List} when is_list(List) ->
+            %% Verify all elements are maps (type guard for eqwalizer)
+            true = lists:all(fun is_map/1, List),
+            {ok, List};
+        {error, _} = Error -> Error
     end.
 
 %% =============================================================================
@@ -73,30 +74,24 @@ handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
 handle_cast({register_topic, TopicName}, State) ->
-    FilteredTopics = lists:delete(TopicName, State#state.registered_topics),
-    NewTopics = [TopicName | FilteredTopics],
-    true = lists:all(fun is_binary/1, NewTopics),
+    NewTopics = [TopicName | [T || T <- State#state.registered_topics, T =/= TopicName]],
     logger:info("Registered topic with lookupd: ~s", [TopicName]),
     {noreply, State#state{registered_topics = NewTopics}};
 
 handle_cast({unregister_topic, TopicName}, State) ->
-    NewTopics = lists:delete(TopicName, State#state.registered_topics),
-    true = lists:all(fun is_binary/1, NewTopics),
+    NewTopics = [T || T <- State#state.registered_topics, T =/= TopicName],
     logger:info("Unregistered topic from lookupd: ~s", [TopicName]),
     {noreply, State#state{registered_topics = NewTopics}};
 
 handle_cast({register_channel, TopicName, ChannelName}, State) ->
     Key = {TopicName, ChannelName},
-    FilteredChannels = lists:delete(Key, State#state.registered_channels),
-    NewChannels = [Key | FilteredChannels],
-    true = lists:all(fun({T, C}) -> is_binary(T) andalso is_binary(C) end, NewChannels),
+    NewChannels = [Key | [K || K <- State#state.registered_channels, K =/= Key]],
     logger:info("Registered channel with lookupd: ~s/~s", [TopicName, ChannelName]),
     {noreply, State#state{registered_channels = NewChannels}};
 
 handle_cast({unregister_channel, TopicName, ChannelName}, State) ->
     Key = {TopicName, ChannelName},
-    NewChannels = lists:delete(Key, State#state.registered_channels),
-    true = lists:all(fun({T, C}) -> is_binary(T) andalso is_binary(C) end, NewChannels),
+    NewChannels = [K || K <- State#state.registered_channels, K =/= Key],
     logger:info("Unregistered channel from lookupd: ~s/~s", [TopicName, ChannelName]),
     {noreply, State#state{registered_channels = NewChannels}};
 

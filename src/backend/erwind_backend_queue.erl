@@ -73,10 +73,12 @@ handle_cast({put, Msg}, State) ->
 
 handle_cast({put_batch, Msgs}, State) ->
     NewQueue = lists:foldl(
-        fun(Msg, Q) when is_record(Msg, nsq_message) -> queue:in(Msg, Q) end,
+        fun(Msg, Q) when is_record(Msg, nsq_message), is_tuple(Q) -> queue:in(Msg, Q) end,
         State#state.memory_queue,
         Msgs
     ),
+    %% Type guard for eqwalizer
+    true = queue:is_queue(NewQueue),
     {noreply, State#state{memory_queue = NewQueue}};
 
 handle_cast(_Request, State) ->

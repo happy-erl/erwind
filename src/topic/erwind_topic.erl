@@ -77,11 +77,9 @@ dpub(TopicName, Body, DeferMs) when is_binary(TopicName), is_binary(Body), is_in
 %% 获取或创建 Channel
 -spec get_channel(pid(), binary()) -> {ok, pid()}.
 get_channel(TopicPid, ChannelName) when is_pid(TopicPid), is_binary(ChannelName) ->
-    Result = gen_server:call(TopicPid, {get_channel, ChannelName}),
-    %% Type guard for eqwalizer
-    {ok, Pid} = Result,
-    true = is_pid(Pid),
-    Result.
+    case gen_server:call(TopicPid, {get_channel, ChannelName}) of
+        {ok, Pid} when is_pid(Pid) -> {ok, Pid}
+    end.
 
 %% 创建 Channel
 -spec create_channel(pid(), binary()) -> {ok, pid()} | {error, term()}.
@@ -106,10 +104,7 @@ delete_channel(TopicPid, ChannelName) when is_pid(TopicPid), is_binary(ChannelNa
 %% 列出所有 Channels
 -spec list_channels(pid()) -> [{binary(), pid()}].
 list_channels(TopicPid) when is_pid(TopicPid) ->
-    Result = gen_server:call(TopicPid, list_channels),
-    %% Type guard for eqwalizer
-    true = is_list(Result),
-    Result.
+    gen_server:call(TopicPid, list_channels).
 
 %% 获取统计信息
 -spec get_stats(pid()) -> map().
@@ -400,10 +395,10 @@ create_channel_internal(ChannelName, State) ->
                     {ok, self(), State};
                 _ ->
                     case erwind_channel_sup:start_channel(State#state.name, ChannelName) of
-                        {ok, Pid} ->
+                        {ok, Pid} when is_pid(Pid) ->
                             %% 监控 Channel
                             erlang:monitor(process, Pid),
-                            NewChannels = maps:put(ChannelName, Pid, State#state.channels),
+                            NewChannels = maps:merge(#{ChannelName => Pid}, State#state.channels),
                             {ok, Pid, State#state{channels = NewChannels}};
                         {error, Reason} ->
                             {error, Reason}
