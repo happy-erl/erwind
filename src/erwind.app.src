@@ -6,7 +6,11 @@
         erwind_tcp_sup,
         erwind_acceptor_pool_sup,
         erwind_connection_sup,
-        erwind_tcp_listener
+        erwind_tcp_listener,
+        erwind_topic_sup,
+        erwind_channel_sup,
+        erwind_stats,
+        erwind_lookupd
     ]},
     {applications, [
         kernel,
@@ -37,12 +41,28 @@
         erwind,
         erwind_app,
         erwind_sup,
+        %% TCP modules
         erwind_tcp_sup,
         erwind_acceptor_pool_sup,
         erwind_connection_sup,
         erwind_tcp_listener,
         erwind_acceptor,
-        erwind_connection
+        erwind_connection,
+        %% Protocol modules
+        erwind_protocol,
+        %% Topic modules
+        erwind_topic_sup,
+        erwind_topic,
+        erwind_topic_registry,
+        %% Channel modules
+        erwind_channel_sup,
+        erwind_channel,
+        %% Backend modules
+        erwind_backend_queue,
+        %% Stats modules
+        erwind_stats,
+        %% Lookupd modules
+        erwind_lookupd
     ]},
     {licenses, ["Apache-2.0"]},
     {links, []},

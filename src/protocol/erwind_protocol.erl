@@ -15,7 +15,7 @@
 %% Export for testing
 -export([parse_line_with_body/2, parse_body/2, parse_integer/1]).
 
--include_lib("../include/erwind.hrl").
+-include("../include/erwind.hrl").
 
 %% =============================================================================
 %% Frame Encoding

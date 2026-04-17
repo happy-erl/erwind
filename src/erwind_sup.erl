@@ -39,11 +39,47 @@ init([]) ->
             shutdown => infinity,
             type => supervisor,
             modules => [erwind_tcp_sup]
+        },
+
+        %% Topic 监督者
+        #{
+            id => erwind_topic_sup,
+            start => {erwind_topic_sup, start_link, []},
+            restart => permanent,
+            shutdown => infinity,
+            type => supervisor,
+            modules => [erwind_topic_sup]
+        },
+
+        %% Channel 监督者
+        #{
+            id => erwind_channel_sup,
+            start => {erwind_channel_sup, start_link, []},
+            restart => permanent,
+            shutdown => infinity,
+            type => supervisor,
+            modules => [erwind_channel_sup]
+        },
+
+        %% 统计模块
+        #{
+            id => erwind_stats,
+            start => {erwind_stats, start_link, []},
+            restart => permanent,
+            shutdown => 5000,
+            type => worker,
+            modules => [erwind_stats]
+        },
+
+        %% Lookupd 客户端
+        #{
+            id => erwind_lookupd,
+            start => {erwind_lookupd, start_link, []},
+            restart => permanent,
+            shutdown => 5000,
+            type => worker,
+            modules => [erwind_lookupd]
         }
-        %% TODO: 添加其他监督者
-        %% - erwind_topic_sup (Topic 监督者)
-        %% - erwind_channel_sup (Channel 监督者)
-        %% - erwind_stats (统计模块)
     ],
 
     {ok, {SupFlags, Children}}.
