@@ -57,6 +57,10 @@
         %% Channel modules
         erwind_channel_sup,
         erwind_channel,
+        erwind_consumer_manager,
+        erwind_memory_queue,
+        erwind_inflight_tracker,
+        erwind_delayed_queue,
         %% Backend modules
         erwind_backend_queue,
         %% Stats modules
