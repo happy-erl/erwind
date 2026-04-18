@@ -33,6 +33,13 @@
         {max_msg_size, 1048576},
         {max_body_size, 5242880},
 
+        %% Backend Queue 配置
+        {data_path, "/tmp/erwind"},
+        {max_bytes_per_file, 104857600},
+        {max_memory_depth, 10000},
+        {sync_every, 2500},
+        {sync_timeout, 2000},
+
         %% 认证配置
         {auth_required, false},
         {auth_secret, undefined}
@@ -63,6 +70,8 @@
         erwind_delayed_queue,
         %% Backend modules
         erwind_backend_queue,
+        erwind_disk_queue,
+        erwind_diskqueue_sup,
         %% Stats modules
         erwind_stats,
         %% Lookupd modules
