@@ -4,7 +4,7 @@
 -module(erwind_protocol_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("../include/erwind.hrl").
+-include_lib("erwind/include/erwind.hrl").
 
 %% =============================================================================
 %% Frame Encoding/Decoding Tests

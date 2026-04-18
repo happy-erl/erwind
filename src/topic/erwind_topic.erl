@@ -17,7 +17,7 @@
 %% Internal exports
 -export([create_message/1, is_ephemeral/1]).
 
--include("../include/erwind.hrl").
+-include_lib("erwind/include/erwind.hrl").
 
 -record(state, {
     name :: binary(),                           %% Topic 名称
@@ -104,7 +104,9 @@ delete_channel(TopicPid, ChannelName) when is_pid(TopicPid), is_binary(ChannelNa
 %% 列出所有 Channels
 -spec list_channels(pid()) -> [{binary(), pid()}].
 list_channels(TopicPid) when is_pid(TopicPid) ->
-    gen_server:call(TopicPid, list_channels).
+    Result = gen_server:call(TopicPid, list_channels),
+    %% Type guard for eqwalizer
+    [{Topic, Pid} || {Topic, Pid} <- Result, is_binary(Topic), is_pid(Pid)].
 
 %% 获取统计信息
 -spec get_stats(pid()) -> map().

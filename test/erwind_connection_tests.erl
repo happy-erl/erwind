@@ -4,7 +4,7 @@
 -module(erwind_connection_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("../include/erwind.hrl").
+-include_lib("erwind/include/erwind.hrl").
 
 %% =============================================================================
 %% Protocol parsing tests

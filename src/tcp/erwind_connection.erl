@@ -17,7 +17,7 @@
 %% State callbacks
 -export([wait_identify/3, authenticated/3, subscribed/3, closing/3]).
 
--include_lib("include/erwind.hrl").
+-include_lib("erwind/include/erwind.hrl").
 
 %% 状态数据
 -record(conn_data, {

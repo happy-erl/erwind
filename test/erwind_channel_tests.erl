@@ -4,7 +4,7 @@
 -module(erwind_channel_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("../include/erwind.hrl").
+-include_lib("erwind/include/erwind.hrl").
 
 -define(TEST_TOPIC, <<"test_topic_ch">>).
 -define(TEST_CHANNEL, <<"test_channel_ch">>).

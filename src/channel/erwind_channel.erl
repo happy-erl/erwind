@@ -18,7 +18,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--include("../include/erwind.hrl").
+-include_lib("erwind/include/erwind.hrl").
 
 -record(state, {
     topic_name :: binary(),
@@ -88,11 +88,10 @@ update_rdy(Pid, Count) when is_pid(Pid), is_integer(Count) ->
 %% 获取消费者列表
 -spec get_consumers(pid()) -> [pid()].
 get_consumers(Pid) when is_pid(Pid) ->
-    Result = gen_server:call(Pid, get_consumers),
-    %% Type guard for eqwalizer
-    true = is_list(Result),
-    true = lists:all(fun is_pid/1, Result),
-    Result.
+    case gen_server:call(Pid, get_consumers) of
+        List when is_list(List) -> [P || P <- List, is_pid(P)];
+        _ -> []
+    end.
 
 %% 获取统计信息
 -spec get_stats(pid()) -> map().
