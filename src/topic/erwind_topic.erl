@@ -8,7 +8,7 @@
 %% API
 -export([start_link/1, stop/1, publish/2, mpub/2, dpub/3]).
 -export([get_channel/2, create_channel/2, delete_channel/2, list_channels/1]).
--export([get_stats/1, pause/1, unpause/1, is_paused/1]).
+-export([get_stats/1, pause/1, unpause/1, is_paused/1, empty/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -138,6 +138,13 @@ is_paused(TopicPid) when is_pid(TopicPid) ->
     true = is_boolean(Result),
     Result.
 
+%% 清空 Topic（清空所有 Channel 和 Backend）
+-spec empty(pid()) -> ok.
+empty(TopicPid) when is_pid(TopicPid) ->
+    Result = gen_server:call(TopicPid, empty),
+    %% Type guard for eqwalizer
+    ok = Result.
+
 %% =============================================================================
 %% gen_server callbacks
 %% =============================================================================
@@ -236,6 +243,22 @@ handle_call(unpause, _From, State) ->
 
 handle_call(is_paused, _From, State) ->
     {reply, State#state.paused, State};
+
+handle_call(empty, _From, State) ->
+    logger:info("Topic ~s emptied", [State#state.name]),
+    %% 清空所有 Channel
+    maps:foreach(fun(_, ChPid) ->
+        case code:which(erwind_channel) of
+            non_existing -> ok;
+            _ -> catch erwind_channel:empty(ChPid)
+        end
+    end, State#state.channels),
+    %% 清空 Backend
+    case State#state.backend of
+        undefined -> ok;
+        BackendPid -> catch erwind_backend_queue:clear(BackendPid)
+    end,
+    {reply, ok, State#state{message_count = 0}};
 
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.

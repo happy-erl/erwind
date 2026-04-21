@@ -79,6 +79,16 @@ init([]) ->
             shutdown => 5000,
             type => worker,
             modules => [erwind_lookupd]
+        },
+
+        %% HTTP API 监督者
+        #{
+            id => erwind_http_sup,
+            start => {erwind_http_sup, start_link, []},
+            restart => permanent,
+            shutdown => infinity,
+            type => supervisor,
+            modules => [erwind_http_sup]
         }
     ],
 

@@ -13,6 +13,7 @@
 -export([start_link/2, stop/1, put_message/2, subscribe/2, unsubscribe/2]).
 -export([finish_message/2, requeue_message/3, touch_message/2]).
 -export([update_rdy/2, get_consumers/1, get_stats/1]).
+-export([get_depth/1, get_consumer_count/1, pause/1, unpause/1, empty/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -101,6 +102,43 @@ get_stats(Pid) when is_pid(Pid) ->
     true = is_map(Result),
     Result.
 
+%% 获取队列深度
+-spec get_depth(pid()) -> non_neg_integer().
+get_depth(Pid) when is_pid(Pid) ->
+    Result = gen_server:call(Pid, get_depth),
+    %% Type guard for eqwalizer
+    true = is_integer(Result) andalso Result >= 0,
+    Result.
+
+%% 获取消费者数量
+-spec get_consumer_count(pid()) -> non_neg_integer().
+get_consumer_count(Pid) when is_pid(Pid) ->
+    Result = gen_server:call(Pid, get_consumer_count),
+    %% Type guard for eqwalizer
+    true = is_integer(Result) andalso Result >= 0,
+    Result.
+
+%% 暂停 Channel
+-spec pause(pid()) -> ok.
+pause(Pid) when is_pid(Pid) ->
+    Result = gen_server:call(Pid, pause),
+    %% Type guard for eqwalizer
+    ok = Result.
+
+%% 恢复 Channel
+-spec unpause(pid()) -> ok.
+unpause(Pid) when is_pid(Pid) ->
+    Result = gen_server:call(Pid, unpause),
+    %% Type guard for eqwalizer
+    ok = Result.
+
+%% 清空 Channel 队列
+-spec empty(pid()) -> ok.
+empty(Pid) when is_pid(Pid) ->
+    Result = gen_server:call(Pid, empty),
+    %% Type guard for eqwalizer
+    ok = Result.
+
 %% =============================================================================
 %% gen_server callbacks
 %% =============================================================================
@@ -149,6 +187,25 @@ handle_call(get_stats, _From, State) ->
         ephemeral => State#state.ephemeral
     },
     {reply, Stats, State};
+
+handle_call(get_depth, _From, State) ->
+    {reply, queue:len(State#state.message_queue), State};
+
+handle_call(get_consumer_count, _From, State) ->
+    {reply, length(State#state.consumers), State};
+
+handle_call(pause, _From, State) ->
+    logger:info("Channel ~s/~s paused", [State#state.topic_name, State#state.channel_name]),
+    {reply, ok, State#state{paused = true}};
+
+handle_call(unpause, _From, State) ->
+    logger:info("Channel ~s/~s unpaused", [State#state.topic_name, State#state.channel_name]),
+    {reply, ok, State#state{paused = false}};
+
+handle_call(empty, _From, State) ->
+    logger:info("Channel ~s/~s emptied (~p messages discarded)",
+               [State#state.topic_name, State#state.channel_name, queue:len(State#state.message_queue)]),
+    {reply, ok, State#state{message_queue = queue:new()}};
 
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.

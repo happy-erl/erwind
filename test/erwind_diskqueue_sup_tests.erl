@@ -6,16 +6,34 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% =============================================================================
+%% Helpers
+%% =============================================================================
+
+%% Safely stops the supervisor, ignoring any errors.
+stop_supervisor() ->
+    case whereis(erwind_diskqueue_sup) of
+        undefined -> ok;
+        Pid -> exit(Pid, normal)
+    end.
+
+%% Safely stops a process, ignoring any errors.
+stop_process(Pid) when is_pid(Pid) ->
+    exit(Pid, normal),
+    ok;
+stop_process(_) ->
+    ok.
+
+%% =============================================================================
 %% Tests
 %% =============================================================================
 
 start_link_test() ->
     %% 使用唯一的注册名避免冲突
-    Name = list_to_atom("diskqueue_sup_" ++ integer_to_list(erlang:unique_integer())),
+    _Name = list_to_atom("diskqueue_sup_" ++ integer_to_list(erlang:unique_integer())),
     {ok, Pid} = erwind_diskqueue_sup:start_link(),
     ?assert(is_pid(Pid)),
     %% 清理
-    catch exit(Pid, normal).
+    stop_process(Pid).
 
 start_queue_test() ->
     {ok, _} = erwind_diskqueue_sup:start_link(),
@@ -34,7 +52,7 @@ start_queue_test() ->
     ok = erwind_diskqueue_sup:stop_queue(Name),
 
     %% 清理监督者
-    catch exit(whereis(erwind_diskqueue_sup), normal).
+    stop_supervisor().
 
 get_queue_test() ->
     {ok, _} = erwind_diskqueue_sup:start_link(),
@@ -50,7 +68,7 @@ get_queue_test() ->
     ?assertEqual(Pid, RetrievedPid),
 
     ok = erwind_diskqueue_sup:stop_queue(Name),
-    catch exit(whereis(erwind_diskqueue_sup), normal).
+    stop_supervisor().
 
 list_queues_test() ->
     {ok, _} = erwind_diskqueue_sup:start_link(),
@@ -66,7 +84,7 @@ list_queues_test() ->
 
     ok = erwind_diskqueue_sup:stop_queue(Name1),
     ok = erwind_diskqueue_sup:stop_queue(Name2),
-    catch exit(whereis(erwind_diskqueue_sup), normal).
+    stop_supervisor().
 
 stop_queue_test() ->
     {ok, _} = erwind_diskqueue_sup:start_link(),
@@ -80,4 +98,4 @@ stop_queue_test() ->
     %% 停止不存在的队列
     ?assertEqual({error, not_found}, erwind_diskqueue_sup:stop_queue(<<"nonexistent">>)),
 
-    catch exit(whereis(erwind_diskqueue_sup), normal).
+    stop_supervisor().

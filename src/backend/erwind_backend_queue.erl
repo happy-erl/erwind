@@ -6,7 +6,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1, stop/1, put/2, put_batch/2, get/1, depth/1]).
+-export([start_link/1, stop/1, put/2, put_batch/2, get/1, depth/1, clear/1]).
 -export([put_hybrid/2, get_hybrid/1, flush/1, peek/1]).
 
 %% gen_server callbacks
@@ -97,6 +97,11 @@ depth(Pid) when is_pid(Pid) ->
 flush(Pid) when is_pid(Pid) ->
     ok = gen_server:call(Pid, flush).
 
+%% 清空队列
+-spec clear(pid()) -> ok.
+clear(Pid) when is_pid(Pid) ->
+    ok = gen_server:call(Pid, clear).
+
 %% =============================================================================
 %% gen_server callbacks
 %% =============================================================================
@@ -184,6 +189,17 @@ handle_call(depth, _From, State) ->
 handle_call(flush, _From, State) ->
     ok = flush_disk(State),
     {reply, ok, State};
+
+handle_call(clear, _From, State) ->
+    %% 清空内存队列
+    NewState = State#state{
+        memory_queue = queue:new(),
+        memory_depth = 0,
+        total_count = 0
+    },
+    %% 清空磁盘队列
+    ok = clear_disk(State),
+    {reply, ok, NewState};
 
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
@@ -291,4 +307,15 @@ get_disk_depth(_) ->
 flush_disk(#state{disk_queue_pid = Pid}) when is_pid(Pid) ->
     erwind_disk_queue:flush(Pid);
 flush_disk(_) ->
+    ok.
+
+%% 清空磁盘队列
+clear_disk(#state{disk_queue_pid = Pid}) when is_pid(Pid) ->
+    try erwind_disk_queue:clear(Pid) of
+        ok -> ok;
+        _ -> ok
+    catch
+        _:_ -> ok
+    end;
+clear_disk(_) ->
     ok.

@@ -6,7 +6,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1, stop/1, put/2, get/1, depth/1, flush/1]).
+-export([start_link/1, stop/1, put/2, get/1, depth/1, flush/1, clear/1]).
 -export([put_batch/2, get_batch/2]).
 
 %% gen_server callbacks
@@ -98,6 +98,10 @@ depth(Pid) when is_pid(Pid) ->
 flush(Pid) when is_pid(Pid) ->
     ok = gen_server:call(Pid, flush).
 
+-spec clear(pid()) -> ok.
+clear(Pid) when is_pid(Pid) ->
+    ok = gen_server:call(Pid, clear).
+
 %% =============================================================================
 %% gen_server callbacks
 %% =============================================================================
@@ -163,6 +167,36 @@ handle_call(flush, _From, State) when State#state.need_sync ->
 
 handle_call(flush, _From, State) ->
     {reply, ok, State};
+
+handle_call(clear, _From, State) ->
+    %% 关闭当前文件句柄
+    case State#state.write_file of
+        undefined -> ok;
+        WriteFd -> file:close(WriteFd)
+    end,
+    case State#state.read_file of
+        undefined -> ok;
+        ReadFd -> file:close(ReadFd)
+    end,
+    %% 删除所有数据文件
+    DataPath = State#state.config#config.data_path,
+    Name = State#state.config#config.name,
+    QueueDir = filename:join(DataPath, binary_to_list(Name)),
+    catch file:del_dir_r(QueueDir),
+    catch file:make_dir(QueueDir),
+    %% 重新初始化状态
+    {reply, ok, State#state{
+        read_file = undefined,
+        read_file_num = 1,
+        read_pos = 0,
+        write_file = undefined,
+        write_file_num = 1,
+        write_pos = 0,
+        depth = 0,
+        write_count = 0,
+        read_count = 0,
+        need_sync = false
+    }};
 
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.

@@ -6,7 +6,7 @@
 
 %% API
 -export([init/0, register_topic/2, unregister_topic/1, lookup_topic/1,
-         list_topics/0, delete_topic/1]).
+         list_topics/0, create_topic/1, delete_topic/1]).
 
 -define(TABLE_NAME, erwind_topic_registry).
 
@@ -53,7 +53,30 @@ lookup_topic(TopicName) when is_binary(TopicName) ->
 list_topics() ->
     ets:tab2list(?TABLE_NAME).
 
+%% 创建新 Topic
+-spec create_topic(binary()) -> {ok, pid()} | {error, term()}.
+create_topic(TopicName) when is_binary(TopicName) ->
+    case lookup_topic(TopicName) of
+        {ok, _Pid} ->
+            {error, already_exists};
+        not_found ->
+            case erwind_topic_sup:start_topic(TopicName) of
+                {ok, Pid} when is_pid(Pid) -> {ok, Pid};
+                {ok, Pid, _} when is_pid(Pid) -> {ok, Pid};
+                {error, {already_started, Pid}} when is_pid(Pid) -> {ok, Pid};
+                {error, Reason} -> {error, Reason};
+                _ -> {error, unknown}
+            end
+    end.
+
 %% 删除 Topic 条目
--spec delete_topic(binary()) -> true.
-delete_topic(TopicName) ->
-    ets:delete(?TABLE_NAME, TopicName).
+-spec delete_topic(binary()) -> ok | {error, term()}.
+delete_topic(TopicName) when is_binary(TopicName) ->
+    case lookup_topic(TopicName) of
+        {ok, Pid} ->
+            ok = erwind_topic:stop(Pid),
+            ets:delete(?TABLE_NAME, TopicName),
+            ok;
+        not_found ->
+            {error, not_found}
+    end.

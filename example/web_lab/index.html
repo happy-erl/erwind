@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erwind HTTP API 演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .api-server-config {
+            background: rgba(255,255,255,0.95);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .api-server-config h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .config-row input {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .config-row button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .config-row button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-online {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-checking {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-online .status-dot {
+            background: #28a745;
+        }
+
+        .status-offline .status-dot {
+            background: #dc3545;
+            animation: none;
+        }
+
+        .status-checking .status-dot {
+            background: #ffc107;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h3 .icon {
+            font-size: 1.2em;
+        }
+
+        .api-group {
+            margin-bottom: 15px;
+        }
+
+        .api-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .api-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .api-method {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .method-get { background: #28a745; color: white; }
+        .method-post { background: #007bff; color: white; }
+
+        .api-path {
+            font-family: monospace;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .api-input {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .api-input input {
+            flex: 1;
+            min-width: 120px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .api-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .result-panel {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .result-panel.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-success {
+            border-left: 3px solid #28a745;
+        }
+
+        .result-error {
+            border-left: 3px solid #dc3545;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .visualization {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .visualization h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .topic-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .topic-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            position: relative;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .topic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .topic-name {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .topic-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 0.9em;
+        }
+
+        .stat {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+
+        .channels-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .channel-tag {
+            background: rgba(255,255,255,0.3);
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .channel-paused {
+            background: rgba(255,193,7,0.5);
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            z-index: 100;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1) rotate(180deg);
+            background: #5568d3;
+        }
+
+        .refresh-btn.spinning {
+            animation: rotate 1s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Erwind HTTP API 演示</h1>
+
+        <div class="api-server-config">
+            <h2>API 服务器配置</h2>
+            <div class="config-row">
+                <input type="text" id="apiHost" placeholder="API 主机地址" value="http://127.0.0.1:4151">
+                <button onclick="checkConnection()">检查连接</button>
+                <span id="connectionStatus" class="status-indicator status-checking">
+                    <span class="status-dot"></span>
+                    检查中...
+                </span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- 健康检查 -->
+            <div class="card">
+                <h3><span class="icon">💓</span> 健康检查</h3>
+                <div class="api-group">
+                    <div class="api-item">
+                        <span class="api-method method-get">GET</span>
+                        <span class="api-path">/ping</span>
+                        <div class="api-input">
+                            <button class="api-btn btn-success" onclick="callApi('GET', '/ping')">
+                                <span>发送请求</span>
+                            </button>
+                        </div>
+                        <div id="result-/ping" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-get">GET</span>
+                        <span class="api-path">/info</span>
+                        <div class="api-input">
+                            <button class="api-btn btn-primary" onclick="callApi('GET', '/info')">
+                                <span>获取信息</span>
+                            </button>
+                        </div>
+                        <div id="result-/info" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-get">GET</span>
+                        <span class="api-path">/stats</span>
+                        <div class="api-input">
+                            <button class="api-btn btn-primary" onclick="callApi('GET', '/stats')">
+                                <span>获取统计</span>
+                            </button>
+                        </div>
+                        <div id="result-/stats" class="result-panel"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Topic 管理 -->
+            <div class="card">
+                <h3><span class="icon">📁</span> Topic 管理</h3>
+                <div class="api-group">
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/topic/create?topic=</span>
+                        <div class="api-input">
+                            <input type="text" id="createTopicName" placeholder="Topic 名称">
+                            <button class="api-btn btn-success" onclick="callApi('POST', '/topic/create', {topic: document.getElementById('createTopicName').value})">
+                                <span>创建</span>
+                            </button>
+                        </div>
+                        <div id="result-/topic/create" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/topic/delete?topic=</span>
+                        <div class="api-input">
+                            <input type="text" id="deleteTopicName" placeholder="Topic 名称">
+                            <button class="api-btn btn-danger" onclick="callApi('POST', '/topic/delete', {topic: document.getElementById('deleteTopicName').value})">
+                                <span>删除</span>
+                            </button>
+                        </div>
+                        <div id="result-/topic/delete" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/topic/pause?topic=</span>
+                        <div class="api-input">
+                            <input type="text" id="pauseTopicName" placeholder="Topic 名称">
+                            <button class="api-btn btn-primary" onclick="callApi('POST', '/topic/pause', {topic: document.getElementById('pauseTopicName').value})">
+                                <span>暂停</span>
+                            </button>
+                        </div>
+                        <div id="result-/topic/pause" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/topic/unpause?topic=</span>
+                        <div class="api-input">
+                            <input type="text" id="unpauseTopicName" placeholder="Topic 名称">
+                            <button class="api-btn btn-primary" onclick="callApi('POST', '/topic/unpause', {topic: document.getElementById('unpauseTopicName').value})">
+                                <span>恢复</span>
+                            </button>
+                        </div>
+                        <div id="result-/topic/unpause" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-get">GET</span>
+                        <span class="api-path">/topic/list</span>
+                        <div class="api-input">
+                            <button class="api-btn btn-primary" onclick="callApi('GET', '/topic/list')">
+                                <span>列出所有</span>
+                            </button>
+                        </div>
+                        <div id="result-/topic/list" class="result-panel"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Channel 管理 -->
+            <div class="card">
+                <h3><span class="icon">📬</span> Channel 管理</h3>
+                <div class="api-group">
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/channel/create</span>
+                        <div class="api-input">
+                            <input type="text" id="createChannelTopic" placeholder="Topic 名称">
+                            <input type="text" id="createChannelName" placeholder="Channel 名称">
+                            <button class="api-btn btn-success" onclick="callApi('POST', '/channel/create', {topic: document.getElementById('createChannelTopic').value, channel: document.getElementById('createChannelName').value})">
+                                <span>创建</span>
+                            </button>
+                        </div>
+                        <div id="result-/channel/create" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/channel/delete</span>
+                        <div class="api-input">
+                            <input type="text" id="deleteChannelTopic" placeholder="Topic 名称">
+                            <input type="text" id="deleteChannelName" placeholder="Channel 名称">
+                            <button class="api-btn btn-danger" onclick="callApi('POST', '/channel/delete', {topic: document.getElementById('deleteChannelTopic').value, channel: document.getElementById('deleteChannelName').value})">
+                                <span>删除</span>
+                            </button>
+                        </div>
+                        <div id="result-/channel/delete" class="result-panel"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息发布 -->
+            <div class="card">
+                <h3><span class="icon">✉️</span> 消息发布</h3>
+                <div class="api-group">
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/pub?topic=</span>
+                        <div class="api-input">
+                            <input type="text" id="pubTopic" placeholder="Topic 名称">
+                            <input type="text" id="pubMessage" placeholder="消息内容">
+                            <button class="api-btn btn-success" onclick="publishMessage()">
+                                <span>发布</span>
+                            </button>
+                        </div>
+                        <div id="result-/pub" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/mpub?topic=</span>
+                        <div class="api-input">
+                            <input type="text" id="mpubTopic" placeholder="Topic 名称">
+                            <input type="text" id="mpubMessages" placeholder="消息1\n消息2\n消息3">
+                            <button class="api-btn btn-primary" onclick="mpubMessages()">
+                                <span>批量发布</span>
+                            </button>
+                        </div>
+                        <div id="result-/mpub" class="result-panel"></div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method method-post">POST</span>
+                        <span class="api-path">/dpub?topic=&defer=</span>
+                        <div class="api-input">
+                            <input type="text" id="dpubTopic" placeholder="Topic 名称">
+                            <input type="text" id="dpubMessage" placeholder="消息内容">
+                            <input type="number" id="dpubDefer" placeholder="延迟(ms)" value="1000">
+                            <button class="api-btn btn-primary" onclick="dpubMessage()">
+                                <span>延迟发布</span>
+                            </button>
+                        </div>
+                        <div id="result-/dpub" class="result-panel"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 可视化展示 -->
+        <div class="visualization">
+            <h3>📊 Topic & Channel 实时状态</h3>
+            <div id="topicVisualization" class="topic-flow">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p>暂无 Topic 数据</p>
+                    <p style="font-size: 0.9em; margin-top: 10px;">点击"获取统计"或"列出所有 Topics"加载数据</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="refreshAll()" title="刷新所有数据">🔄</button>
+
+    <script>
+        let currentStats = null;
+
+        // 检查连接状态
+        async function checkConnection() {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.className = 'status-indicator status-checking';
+            statusEl.innerHTML = '<span class="status-dot"></span>检查中...';
+
+            try {
+                const host = document.getElementById('apiHost').value;
+                const response = await fetch(`${host}/ping`, { method: 'GET' });
+                if (response.ok) {
+                    statusEl.className = 'status-indicator status-online';
+                    statusEl.innerHTML = '<span class="status-dot"></span>已连接';
+                    return true;
+                }
+            } catch (e) {
+                console.error('Connection check failed:', e);
+            }
+
+            statusEl.className = 'status-indicator status-offline';
+            statusEl.innerHTML = '<span class="status-dot"></span>未连接';
+            return false;
+        }
+
+        // 调用 API
+        async function callApi(method, path, params = {}) {
+            const host = document.getElementById('apiHost').value;
+            const resultId = `result-${path}`;
+            const resultEl = document.getElementById(resultId);
+
+            // 构建 URL
+            let url = `${host}${path}`;
+            const queryParams = new URLSearchParams();
+            for (const [key, value] of Object.entries(params)) {
+                if (value) queryParams.append(key, value);
+            }
+            if (queryParams.toString()) {
+                url += '?' + queryParams.toString();
+            }
+
+            // 显示加载状态
+            resultEl.className = 'result-panel show';
+            resultEl.innerHTML = '<span class="loading"></span> 请求中...';
+
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                };
+
+                // POST 请求添加 body
+                if (method === 'POST' && path === '/pub') {
+                    options.body = params.message || '';
+                } else if (method === 'POST' && path === '/mpub') {
+                    options.body = params.messages || '';
+                } else if (method === 'POST' && path === '/dpub') {
+                    options.body = params.message || '';
+                }
+
+                const response = await fetch(url, options);
+                const data = await response.json().catch(() => ({}));
+
+                const timestamp = new Date().toLocaleTimeString();
+                resultEl.innerHTML = `
+                    <div style="margin-bottom: 5px; color: ${response.ok ? '#28a745' : '#dc3545'}; font-weight: bold;">
+                        ${response.ok ? '✓' : '✗'} ${response.status} ${response.statusText} (${timestamp})
+                    </div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                resultEl.className = `result-panel show ${response.ok ? 'result-success' : 'result-error'}`;
+
+                // 更新可视化
+                if (path === '/stats' || path === '/topic/list') {
+                    await updateVisualization();
+                }
+
+                return { success: response.ok, data };
+            } catch (error) {
+                resultEl.innerHTML = `
+                    <div style="color: #dc3545; font-weight: bold;">✗ 请求失败</div>
+                    <pre>${error.message}</pre>
+                `;
+                resultEl.className = 'result-panel show result-error';
+                return { success: false, error };
+            }
+        }
+
+        // 发布消息
+        async function publishMessage() {
+            const topic = document.getElementById('pubTopic').value;
+            const message = document.getElementById('pubMessage').value;
+
+            if (!topic || !message) {
+                alert('请填写 Topic 名称和消息内容');
+                return;
+            }
+
+            await callApi('POST', '/pub', { topic, message });
+        }
+
+        // 批量发布
+        async function mpubMessages() {
+            const topic = document.getElementById('mpubTopic').value;
+            const messages = document.getElementById('mpubMessages').value;
+
+            if (!topic || !messages) {
+                alert('请填写 Topic 名称和消息内容');
+                return;
+            }
+
+            await callApi('POST', '/mpub', { topic, messages });
+        }
+
+        // 延迟发布
+        async function dpubMessage() {
+            const topic = document.getElementById('dpubTopic').value;
+            const message = document.getElementById('dpubMessage').value;
+            const defer = document.getElementById('dpubDefer').value;
+
+            if (!topic || !message) {
+                alert('请填写 Topic 名称和消息内容');
+                return;
+            }
+
+            await callApi('POST', `/dpub?topic=${topic}&defer=${defer}`, { topic, message });
+        }
+
+        // 更新可视化
+        async function updateVisualization() {
+            const host = document.getElementById('apiHost').value;
+            const container = document.getElementById('topicVisualization');
+
+            try {
+                const response = await fetch(`${host}/stats`);
+                const data = await response.json();
+                currentStats = data;
+
+                if (data.topic_list && data.topic_list.length > 0) {
+                    container.innerHTML = data.topic_list.map(topic => `
+                        <div class="topic-item">
+                            <div class="topic-header">
+                                <span class="topic-name">📁 ${topic.name}</span>
+                                <div class="topic-stats">
+                                    <span class="stat">📊 深度: ${topic.depth || 0}</span>
+                                    <span class="stat">📨 消息: ${topic.message_count || 0}</span>
+                                    ${topic.paused ? '<span class="stat" style="background: rgba(255,193,7,0.5);">⏸️ 已暂停</span>' : ''}
+                                </div>
+                            </div>
+                            ${topic.channels && topic.channels.length > 0 ? `
+                                <div class="channels-row">
+                                    ${topic.channels.map(ch => `
+                                        <span class="channel-tag ${ch.paused ? 'channel-paused' : ''}">
+                                            📬 ${ch.name}
+                                            ${ch.depth > 0 ? `<small>(${ch.depth})</small>` : ''}
+                                            ${ch.paused ? '⏸️' : ''}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            ` : '<div style="font-size: 0.85em; opacity: 0.8;">暂无 Channels</div>'}
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <p>暂无 Topic 数据</p>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.error('Failed to update visualization:', e);
+            }
+        }
+
+        // 刷新所有数据
+        async function refreshAll() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+
+            await checkConnection();
+            await callApi('GET', '/stats');
+            await updateVisualization();
+
+            setTimeout(() => btn.classList.remove('spinning'), 1000);
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            checkConnection();
+
+            // 自动刷新可视化数据
+            setInterval(() => {
+                if (currentStats) {
+                    updateVisualization();
+                }
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

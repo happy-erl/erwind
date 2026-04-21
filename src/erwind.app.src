@@ -10,12 +10,18 @@
         erwind_topic_sup,
         erwind_channel_sup,
         erwind_stats,
-        erwind_lookupd
+        erwind_lookupd,
+        erwind_http_sup,
+        erwind_http_listener
     ]},
     {applications, [
         kernel,
         stdlib,
-        crypto
+        crypto,
+        ssl,
+        ranch,
+        cowboy,
+        jsx
     ]},
     {env, [
         %% TCP 监听配置
@@ -42,7 +48,17 @@
 
         %% 认证配置
         {auth_required, false},
-        {auth_secret, undefined}
+        {auth_secret, undefined},
+
+        %% HTTP API 配置
+        {http_port, 4151},
+        {http_max_connections, 1000},
+        {http_idle_timeout, 60000},
+
+        %% CORS 配置
+        %% {cors, disabled} 禁用 CORS
+        %% {cors, #{enabled => true, origin => <<"*">>}} 启用 CORS
+        {cors, #{enabled => true, origin => <<"*">>}}
     ]},
     {modules, [
         erwind,
@@ -75,7 +91,10 @@
         %% Stats modules
         erwind_stats,
         %% Lookupd modules
-        erwind_lookupd
+        erwind_lookupd,
+        %% HTTP modules
+        erwind_http_sup,
+        erwind_http_api
     ]},
     {licenses, ["Apache-2.0"]},
     {links, []},

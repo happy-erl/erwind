@@ -6,7 +6,7 @@
 
 %% API
 -export([start_link/0, incr_topic_msg_count/1, incr_channel_msg_count/2,
-         get_topic_stats/1, get_channel_stats/2, get_global_stats/0]).
+         get_topic_stats/1, get_channel_stats/2, get_global_stats/0, get_start_time/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -16,7 +16,8 @@
 
 -record(state, {
     topic_counts = #{} :: map(),
-    channel_counts = #{} :: map()
+    channel_counts = #{} :: map(),
+    start_time = erlang:system_time(millisecond) :: integer()
 }).
 
 %% =============================================================================
@@ -56,6 +57,13 @@ get_global_stats() ->
     true = is_map(Result),
     Result.
 
+-spec get_start_time() -> integer().
+get_start_time() ->
+    Result = gen_server:call(?MODULE, get_start_time),
+    %% Type guard for eqwalizer
+    true = is_integer(Result),
+    Result.
+
 %% =============================================================================
 %% gen_server callbacks
 %% =============================================================================
@@ -74,6 +82,9 @@ handle_call({get_channel_stats, TopicName, ChannelName}, _From, State) ->
 handle_call(get_global_stats, _From, State) ->
     Total = lists:sum(maps:values(State#state.topic_counts)),
     {reply, #{total_messages => Total}, State};
+
+handle_call(get_start_time, _From, State) ->
+    {reply, State#state.start_time, State};
 
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
