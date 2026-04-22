@@ -104,8 +104,9 @@ delete_channel(TopicPid, ChannelName) when is_pid(TopicPid), is_binary(ChannelNa
 %% 列出所有 Channels
 -spec list_channels(pid()) -> [{binary(), pid()}].
 list_channels(TopicPid) when is_pid(TopicPid) ->
-    Result = gen_server:call(TopicPid, list_channels),
+    Result0 = gen_server:call(TopicPid, list_channels),
     %% Type guard for eqwalizer
+    Result = case is_list(Result0) of true -> Result0; false -> [] end,
     [{Topic, Pid} || {Topic, Pid} <- Result, is_binary(Topic), is_pid(Pid)].
 
 %% 获取统计信息
