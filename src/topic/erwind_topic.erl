@@ -436,7 +436,7 @@ create_channel_internal(ChannelName, State) ->
 update_stats(TopicName) ->
     case code:which(erwind_stats) of
         non_existing -> ok;
-        _ -> erwind_stats:incr_topic_msg_count(TopicName)
+        _ -> erwind_stats:incr_topic(TopicName, message_count)
     end.
 
 %% 判断是否为临时 Topic
