@@ -58,11 +58,29 @@
         %% CORS 配置
         %% {cors, disabled} 禁用 CORS
         %% {cors, #{enabled => true, origin => <<"*">>}} 启用 CORS
-        {cors, #{enabled => true, origin => <<"*">>}}
+        {cors, #{enabled => true, origin => <<"*">>}},
+
+        %% 日志级别配置
+        {log_level, info},
+
+        %% 统计配置
+        {stats_enabled, true},
+        {statsd_enabled, false},
+        {prometheus_enabled, false},
+
+        %% Lookupd 配置
+        {nsqlookupd_tcp_addresses, []},
+        {broadcast_address, "127.0.0.1"},
+
+        %% Topic/Channel 限制
+        {max_topics, 100},
+        {max_channels_per_topic, 100},
+        {max_consumers_per_channel, 100}
     ]},
     {modules, [
         erwind,
         erwind_app,
+        erwind_config,
         erwind_sup,
         %% TCP modules
         erwind_tcp_sup,

@@ -5,6 +5,9 @@
 -module(erwind_lookupd).
 -behaviour(gen_server).
 
+%% eqWAlizer: 忽略类型转换函数（动态类型过滤无法静态验证）
+-eqwalizer_ignore([{filter_string_list, 1}, {safe_list_to_binary, 1}]).
+
 %% API
 -export([start_link/0, stop/0]).
 -export([register_topic/1, unregister_topic/1,
@@ -75,43 +78,38 @@ lookup(TopicName) when is_binary(TopicName) ->
 -spec lookup_topic(binary()) -> {ok, [map()]} | {error, term()}.
 lookup_topic(TopicName) when is_binary(TopicName) ->
     Result = gen_server:call(?MODULE, {lookup_topic, TopicName}, 10000),
-    case Result of
-        {ok, List} when is_list(List) ->
-            %% 验证所有元素都是 map
-            case lists:all(fun is_map/1, List) of
-                true -> {ok, List};
-                false -> {ok, []}
-            end;
-        {error, _} = Err -> Err;
-        _ -> {error, unexpected_result}
-    end.
+    validate_map_list_result(Result).
 
 %% ##查询 Topic 的所有 Channels
 -spec lookup_channels(binary()) -> {ok, [binary()]} | {error, term()}.
 lookup_channels(TopicName) when is_binary(TopicName) ->
     Result = gen_server:call(?MODULE, {lookup_channels, TopicName}, 10000),
-    case Result of
-        {ok, List} when is_list(List) ->
-            %% 验证所有元素都是 binary
-            case lists:all(fun is_binary/1, List) of
-                true -> {ok, List};
-                false -> {ok, []}
-            end;
-        {error, _} = Err -> Err;
-        _ -> {error, unexpected_result}
-    end.
+    validate_binary_list_result(Result).
 
 %% ##查询所有节点
 -spec lookup_nodes() -> {ok, [map()]} | {error, term()}.
 lookup_nodes() ->
     Result = gen_server:call(?MODULE, lookup_nodes, 10000),
+    validate_map_list_result(Result).
+
+%% ###验证结果为 map 列表
+-spec validate_map_list_result(term()) -> {ok, [map()]} | {error, term()}.
+validate_map_list_result(Result) ->
     case Result of
         {ok, List} when is_list(List) ->
-            %% 验证所有元素都是 map
-            case lists:all(fun is_map/1, List) of
-                true -> {ok, List};
-                false -> {ok, []}
-            end;
+            Filtered = [Item || Item <- List, is_map(Item)],
+            {ok, Filtered};
+        {error, _} = Err -> Err;
+        _ -> {error, unexpected_result}
+    end.
+
+%% ###验证结果为 binary 列表
+-spec validate_binary_list_result(term()) -> {ok, [binary()]} | {error, term()}.
+validate_binary_list_result(Result) ->
+    case Result of
+        {ok, List} when is_list(List) ->
+            Filtered = [Item || Item <- List, is_binary(Item)],
+            {ok, Filtered};
         {error, _} = Err -> Err;
         _ -> {error, unexpected_result}
     end.
@@ -129,12 +127,33 @@ set_lookupd_addrs(Addrs) when is_list(Addrs) ->
 -spec get_lookupd_addrs() -> [string()].
 get_lookupd_addrs() ->
     Result = gen_server:call(?MODULE, get_lookupd_addrs),
-    case Result of
-        List when is_list(List) ->
-            %% 过滤只保留字符串类型的元素
-            [Item || Item <- List, is_list(Item)];
-        _ -> []
+    filter_string_list(Result).
+
+%% ###过滤字符串列表
+-spec filter_string_list(term()) -> [string()].
+filter_string_list(List) when is_list(List) ->
+    filter_string_list_acc(List, []);
+filter_string_list(_) ->
+    [].
+
+-spec filter_string_list_acc([term()], [string()]) -> [string()].
+filter_string_list_acc([], Acc) ->
+    lists:reverse(Acc);
+filter_string_list_acc([Item | Rest], Acc) ->
+    case is_string(Item) of
+        true when is_list(Item) -> filter_string_list_acc(Rest, [Item | Acc]);
+        false -> filter_string_list_acc(Rest, Acc)
     end.
+
+%% ###检查是否为字符串
+-spec is_string(term()) -> boolean().
+is_string(Item) when is_list(Item) ->
+    lists:all(fun
+        (C) when is_integer(C), C >= 0, C =< 255 -> true;
+        (_) -> false
+    end, Item);
+is_string(_) ->
+    false.
 
 %% =============================================================================
 %% gen_server callbacks
@@ -147,7 +166,7 @@ init([]) ->
         _ -> []
     end,
     %% 过滤只保留字符串类型的地址
-    Addrs = [Addr || Addr <- Addrs0, is_list(Addr)],
+    Addrs = filter_string_list(Addrs0),
 
     %% 获取本地服务端口
     HttpPort = case application:get_env(erwind, http_port, ?DEFAULT_HTTP_PORT) of
@@ -597,10 +616,12 @@ uri_encode_binary(<<C:8, Rest/binary>>) ->
     end.
 
 %% ###获取广播地址
+-spec get_broadcast_address() -> binary().
 get_broadcast_address() ->
     case application:get_env(erwind, broadcast_address) of
         {ok, Addr} when is_binary(Addr) -> Addr;
-        {ok, Addr} when is_list(Addr) -> list_to_binary(Addr);
+        {ok, Addr} when is_list(Addr) ->
+            safe_list_to_binary(Addr);
         undefined ->
             %% 尝试获取主机名
             case inet:gethostname() of
@@ -608,3 +629,46 @@ get_broadcast_address() ->
                 _ -> <<"127.0.0.1">>
             end
     end.
+
+%% ###安全地将列表转换为二进制
+-spec safe_list_to_binary(term()) -> binary().
+safe_list_to_binary(List) when is_list(List) ->
+    try
+        %% 先验证列表中的元素是否适合转换为二进制
+        case validate_iolist(List) of
+            {ok, ValidIOList} -> erlang:iolist_to_binary(ValidIOList);
+            error -> <<"127.0.0.1">>
+        end
+    catch
+        _:_ -> <<"127.0.0.1">>
+    end;
+safe_list_to_binary(Bin) when is_binary(Bin) ->
+    Bin;
+safe_list_to_binary(_) ->
+    <<"127.0.0.1">>.
+
+%% ###验证并转换为有效的 iolist
+-spec validate_iolist(term()) -> {ok, iolist()} | error.
+validate_iolist(List) when is_list(List) ->
+    try
+        {ok, validate_iolist_acc(List, [])}
+    catch
+        throw:invalid -> error
+    end;
+validate_iolist(Bin) when is_binary(Bin) ->
+    {ok, Bin};
+validate_iolist(_) ->
+    error.
+
+-spec validate_iolist_acc([term()], iolist()) -> iolist().
+validate_iolist_acc([], Acc) ->
+    lists:reverse(Acc);
+validate_iolist_acc([Item | Rest], Acc) when is_binary(Item) ->
+    validate_iolist_acc(Rest, [Item | Acc]);
+validate_iolist_acc([Item | Rest], Acc) when is_integer(Item), Item >= 0, Item =< 255 ->
+    validate_iolist_acc(Rest, [Item | Acc]);
+validate_iolist_acc([Item | Rest], Acc) when is_list(Item) ->
+    {ok, Nested} = validate_iolist(Item),
+    validate_iolist_acc(Rest, [Nested | Acc]);
+validate_iolist_acc(_, _) ->
+    throw(invalid).

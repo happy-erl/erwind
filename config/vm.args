@@ -1,0 +1,41 @@
+# vm.args
+# Erlang VM 启动参数
+
+# 节点名称
+-name erwind@127.0.0.1
+
+# Cookie（生产环境请更改）
+-setcookie erwind_cookie_change_me_in_production
+
+# 心跳检测
+-heart
+
+# 内核轮询（Linux 下启用 epoll）
++K true
+
+# 进程数限制（最大 100 万进程）
++P 1000000
+
+# 原子数限制
++t 5000000
+
+# 端口数限制
++Q 100000
+
+# 分布式端口范围
+-kernel inet_dist_listen_min 9000 inet_dist_listen_max 9100
+
+# 异步线程池大小
++A 64
+
+# 调度器设置
++S 8:8
+
+# 垃圾回收设置
+-env ERL_FULLSWEEP_AFTER 1000
+
+# 内存分配器设置
+-env ERL_MALLOC_FLAGS "+Muatscs +Muasceh"
+
+# 数据库脏调度器（如果有 NIF 使用）
++SDio 8
