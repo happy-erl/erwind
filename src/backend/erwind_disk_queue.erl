@@ -1,4 +1,4 @@
-%% erwind_disk_queue.erl
+    %% erwind_disk_queue.erl
 %% 磁盘队列模块 - 文件持久化存储
 %% 实现文件分段存储和顺序写入
 
@@ -182,8 +182,8 @@ handle_call(clear, _From, State) ->
     DataPath = State#state.config#config.data_path,
     Name = State#state.config#config.name,
     QueueDir = filename:join(DataPath, binary_to_list(Name)),
-    catch file:del_dir_r(QueueDir),
-    catch file:make_dir(QueueDir),
+    try file:del_dir_r(QueueDir) catch _:_ -> ok end,
+    try file:make_dir(QueueDir) catch _:_ -> ok end,
     %% 重新初始化状态
     {reply, ok, State#state{
         read_file = undefined,
@@ -235,7 +235,7 @@ handle_cast({put_batch, Bodies}, State) when is_list(Bodies) ->
     %% 批量写入
     true = is_list(DataList),
     true = is_record(NewState, state),
-    AllData = iolist_to_binary(lists:reverse(DataList)),
+    AllData = iolist_to_binary([D || D <- lists:reverse(DataList), is_binary(D)]),
     ok = file:write(NewState#state.write_file, AllData),
 
     UpdatedState = NewState#state{
@@ -291,10 +291,18 @@ code_change(_OldVsn, State, _Extra) ->
 %% =============================================================================
 
 %% 获取数据目录
+-spec get_data_path(binary()) -> string().
 get_data_path(Name) ->
-    BasePath0 = application:get_env(erwind, data_path, "/tmp/erwind"),
-    BasePath = if is_list(BasePath0) -> BasePath0; true -> "/tmp/erwind" end,
-    filename:join([BasePath, binary_to_list(Name)]).
+    BasePath = get_data_path_from_config(),
+    NameStr = binary_to_list(Name),
+    filename:join(BasePath, NameStr).
+
+-spec get_data_path_from_config() -> string().
+get_data_path_from_config() ->
+    case application:get_env(erwind, data_path) of
+        {ok, Path} when is_list(Path) -> Path;
+        _ -> "/tmp/erwind"
+    end.
 
 %% 编码消息
 encode_message(Body) ->
@@ -554,8 +562,12 @@ load_meta(Config) ->
 encode_meta_json(Meta) ->
     Pairs = maps:to_list(Meta),
     Strs = [io_lib:format("\"~s\":~p", [K, V]) || {K, V} <- Pairs],
-    Joined = string:join([unicode:characters_to_list(S) || S <- Strs], ","),
+    Joined = string:join([to_string(S) || S <- Strs], ","),
     unicode:characters_to_binary([${, Joined, $}]).
+
+-spec to_string(term()) -> string().
+to_string(S) when is_list(S) -> S;
+to_string(S) -> unicode:characters_to_list(S).
 
 %% 简单 JSON 解码
 decode_meta_json(Bin) ->

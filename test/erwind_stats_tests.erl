@@ -46,9 +46,14 @@ setup() ->
             exit(ExistingPid, normal),
             timer:sleep(100)
     end,
-    {ok, Pid} = erwind_stats:start_link(),
-    timer:sleep(50),
-    Pid.
+    case erwind_stats:start_link() of
+        {ok, Pid} ->
+            timer:sleep(50),
+            Pid;
+        {error, {already_started, Pid}} ->
+            timer:sleep(50),
+            Pid
+    end.
 
 cleanup(_Pid) ->
     case whereis(erwind_stats) of

@@ -214,16 +214,13 @@ handle_cast({put, Msg}, State) ->
     {noreply, NewState};
 
 handle_cast({put_batch, Msgs}, State) when is_list(Msgs) ->
+    ValidMsgs = [M || M <- Msgs, is_record(M, nsq_message)],
     NewQueue = lists:foldl(
-        fun(Msg, Q) when is_record(Msg, nsq_message) ->
-                true = is_tuple(Q),
-                queue:in(Msg, Q);
-           (_, Q) -> Q
-        end,
+        fun(Msg, Q) -> queue:in(Msg, Q) end,
         State#state.memory_queue,
-        Msgs
+        ValidMsgs
     ),
-    Count = length(Msgs),
+    Count = length(ValidMsgs),
     NewState = State#state{
         memory_queue = NewQueue,
         memory_depth = State#state.memory_depth + Count,
